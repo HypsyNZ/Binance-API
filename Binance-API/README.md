@@ -1,3 +1,6 @@
+### Version 6.0.7.7
+- [x] Numerous bug fixes and optimizations
+
 ### Version 6.0.7.6
 - [x] Add `STOP_PRICE_WOULD_TRIGGER_IMMEDIATELY` Order Reject Reason
 
