@@ -1,9 +1,4 @@
-# BinanceAPI.NET [![](https://buildstats.info/nuget/BinanceAPI.NET)](https://www.nuget.org/packages/BinanceAPI.NET)
-
-To get started with examples or find out about new features or changes, read the [Wiki](<https://github.com/HypsyNZ/BinanceAPI.NET/wiki>)
-
-[![](https://user-images.githubusercontent.com/54571583/173321360-737e4e55-0e46-40aa-ac4e-0ac01875ce96.png)](https://github.com/HypsyNZ/BinanceAPI.NET/wiki)
-
+# BinanceAPI.NET
 
 # What Endpoints are Supported?
 
