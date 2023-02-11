@@ -13,7 +13,6 @@ Supports all Basic Endpoints of the [Binance API](https://binance-docs.github.io
 | Isolated 	| Full 	  | Yes |
 | Account	| Full 	  | Yes |
 | Symbols	| Full 	  | Yes |
-| Order Book    | Full    | [Yes](<https://binance-docs.github.io/apidocs/spot/en/#how-to-manage-a-local-order-book-correctly>) |
 | Trades        | Full    | Yes |
 | Order Updates | Full    | [Yes](<https://binance-docs.github.io/apidocs/spot/en/#payload-order-update>) |
 | Tickers       | Full    | [Yes](<https://binance-docs.github.io/apidocs/spot/en/#websocket-market-streams>) |
@@ -25,6 +24,7 @@ Some features aren't supported, examples include
 
 | Feature 	| Support |
 |---------------|-------|
+| Order Book    | No |
 | SubAccounts 	| No 	| 
 | Futures	| No 	| 
 | Swaps 	| No 	|
