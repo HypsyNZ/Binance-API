@@ -1,5 +1,7 @@
 # BinanceAPI.NET
 
+[![NUGET-blue](https://user-images.githubusercontent.com/54571583/218278582-ded4b3ca-012f-4a81-bc9d-00f35410bc37.png)](https://www.nuget.org/packages/BinanceAPI.NET/)
+
 # What Endpoints are Supported?
 
 Supports all Basic Endpoints of the [Binance API](https://binance-docs.github.io/apidocs/spot/en/#change-log), Including some that aren't in the list below
