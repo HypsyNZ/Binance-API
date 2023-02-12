@@ -75,10 +75,61 @@ namespace API_Test
                     await sub.ReconnectSocketAsync().ConfigureAwait(false);
 
                     // work work
-                    await Task.Delay(20000).ConfigureAwait(false);
+                    await Task.Delay(5000).ConfigureAwait(false);
 
-                    // Destroy everything and unsubscribe, this should cause UnsubscribeAllAsync to do nothing
-                    await sub.CloseAndDisposeSubscriptionAsync().ConfigureAwait(false);
+                    // Unsubscribe
+                    bool b = await sub.UnsubscribeAsync().ConfigureAwait(false);
+                    if (b)
+                    {
+                        Console.WriteLine("Unsubscribed Successfully");
+                    }
+
+                    // wait
+                    await Task.Delay(5000).ConfigureAwait(false);
+
+                    // Resubscribe
+                    bool b2 = await sub.ResubscribeAsync().ConfigureAwait(false);
+                    if (b2)
+                    {
+                        Console.WriteLine("Resubscribed Successfully");
+                    }
+
+                    // wait
+                    await Task.Delay(5000).ConfigureAwait(false);
+
+                    // Destroy everything and unsubscribe
+                    bool b3 = await sub.DisposeAsync().ConfigureAwait(false);
+                    if (b3)
+                    {
+                        Console.WriteLine("Disposed Successfully");
+                    }
+
+                    // wait
+                    await Task.Delay(5000).ConfigureAwait(false);
+
+                    sub = null;
+                    Console.WriteLine("Create New Socket");
+
+                    sub = socketClient.Spot.SubscribeToBookTickerUpdatesAsync("BTCUSDT", data =>
+                    {
+                        // Uncomment to see output from the Socket
+                        Console.WriteLine("[" + data.Data.UpdateId +
+                            "]| BestAsk: " + data.Data.BestAskPrice.Normalize().ToString("0.00") +
+                            " | Ask Quan: " + data.Data.BestAskQuantity.Normalize().ToString("000.00000#####") +
+                            " | BestBid :" + data.Data.BestBidPrice.Normalize().ToString("0.00") +
+                            " | BidQuantity :" + data.Data.BestBidQuantity.Normalize().ToString("000.00000#####"));
+                    }).Result.Data;
+
+                    await Task.Delay(5000).ConfigureAwait(false);
+
+                    // Destroy everything and unsubscribe
+                    bool b4 = await sub.DisposeAsync().ConfigureAwait(false);
+                    if (b4)
+                    {
+                        Console.WriteLine("Disposed Successfully");
+                    }
+
+                    Console.WriteLine("Completed");
 
                     //// TEST BEGINS
                     //for (int i = 0; i < 1000; i++)
@@ -88,15 +139,13 @@ namespace API_Test
                     //    // Last Subscription Socket Action Time In Ticks
                     //    Console.WriteLine(sub.Connection.Socket.LastActionTime.Ticks);
                     //}
-
-                    _ = socketClient.UnsubscribeAsync(sub).ConfigureAwait(false);
                 }).ConfigureAwait(false);
             });
         }
 
         private static void BinanceSocket_StatusChanged(ConnectionStatus obj)
         {
-            Console.WriteLine(obj.ToString());
+            Console.WriteLine("Status: " + obj.ToString());
         }
 
     }

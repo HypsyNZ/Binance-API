@@ -52,8 +52,8 @@ namespace BinanceAPI.ClientBase
         private const string SOCKET_CLOSE_MESSAGE = "] received `Close` message..";
         private const string LEFT_BRACKET = "[";
 
-        protected private bool sendLoopActive = false;
-        protected private bool digestLoopActive = false;
+        protected private bool _sendLoopActive = false;
+        protected private bool _digestLoopActive = false;
 
         /// <summary>
         /// Event - Connectiion restored event
@@ -77,7 +77,8 @@ namespace BinanceAPI.ClientBase
         private AsyncResetEvent _sendEvent = new AsyncResetEvent();
         private ConcurrentQueue<byte[]> _sendBuffer = new ConcurrentQueue<byte[]>();
 
-        private volatile bool _resetting;
+        private volatile bool _resettingSend;
+        private volatile bool _resettingDigest;
         private volatile bool _multiPartMessage = false;
         private ArraySegment<byte> _buffer = new();
 
@@ -120,7 +121,7 @@ namespace BinanceAPI.ClientBase
         /// <summary>
         /// If the connection is open
         /// </summary>
-        public bool IsOpen => ClientSocket.State == WebSocketState.Open && !_resetting;
+        public bool IsOpen => (ClientSocket != null && ClientSocket.State == WebSocketState.Open) && (!_resettingSend || !_resettingDigest);
 
         /// <summary>
         /// Encoding used for decoding the received bytes into a string
@@ -153,55 +154,104 @@ namespace BinanceAPI.ClientBase
         }
 
         /// <summary>
-        /// Unsubscribe and Dispose the Socket
+        /// Unsubscribe the Socket
+        /// <para>You can only call this method when <see cref="ConnectionStatus.Connected"/></para>
         /// </summary>
         /// <returns></returns>
         public async Task<bool> UnsubscribeAsync()
         {
-            bool b = await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
-            await DisposeAsync().ConfigureAwait(false);
+            if (SocketConnectionStatus != ConnectionStatus.Connected)
+            {
+                return false;
+            }
+
+            await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
+            ShouldAttemptConnection = false;
+            _resettingDigest = true;
+            _resettingSend = true;
+            _sendEvent.Set();
+
+            await FailRequests().ConfigureAwait(false);
+            DisconnectTime = DateTime.UtcNow;
+            SocketOnStatusChanged(ConnectionStatus.Unsubscribed);
+            return true;
+        }
+
+        /// <summary>
+        /// Resubscribe the Socket
+        /// <para>You can only call this when <see cref="ConnectionStatus.Unsubscribed"/></para>
+        /// </summary>
+        /// <returns></returns>
+        public async Task<bool> ResubscribeAsync()
+        {
+            if (SocketConnectionStatus != ConnectionStatus.Unsubscribed)
+            {
+                return false;
+            }
+
+            NewWebSocketInternal(true);
+
+            bool b = await ConnectionAttemptLoopInternalAsync().ConfigureAwait(false);
+            if (b)
+            {
+                SocketOnStatusChanged(ConnectionStatus.Connected);
+            }
+
             return b;
         }
 
         /// <summary>
-        /// Closes the subscription on this connection
-        /// <para>Closes the connection if the correct subscription is provided</para>
+        /// Internal Reconnection method, Will reset the socket so it can be automatically reconnected or closed permanantly
+        /// <para>You can call this if you think the socket is disconnected</para>
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> CloseAndDisposeSubscriptionAsync()
+        public async Task ReconnectSocketAsync()
         {
-            if (IsConfirmed)
+            try
             {
-                MessageHandler = null;
-                var result = await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
-                if (result)
+                if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting || _resettingSend || _resettingDigest)
                 {
-                    SocketLog?.Debug($"Socket {Request.Id} subscription successfully unsubscribed, Closing connection..");
+                    return;
+                }
+
+                await Signal().ConfigureAwait(false);
+                await CloseConnection().ConfigureAwait(false);
+                await FailRequests().ConfigureAwait(false);
+
+                if (ShouldAttemptConnection)
+                {
+                    if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting)
+                    {
+                        return; // Already reconnecting
+                    }
+
+                    DisconnectTime = DateTime.UtcNow;
+                    SocketOnStatusChanged(ConnectionStatus.Lost);
+                    SocketLog?.Info($"Socket {Request.Id} Connection lost, will try to reconnect after 2000ms");
+
+                    _ = Task.Run(async () =>
+                    {
+                        await ConnectionAttemptLoopInternalAsync().ConfigureAwait(false);
+                    }).ConfigureAwait(false);
                 }
                 else
                 {
-                    SocketLog?.Debug($"Socket {Request.Id} subscription seems to already be unsubscribed, Closing connection..");
+                    SocketOnStatusChanged(ConnectionStatus.Closed);
+                    SocketLog?.Info($"Socket {Request.Id} closed");
+
+                    if (ClientSocket != null)
+                    {
+                        ClientSocket = null!;
+                    }
                 }
-
-                await DisposeAsync().ConfigureAwait(false);
-
-                return result;
             }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Close and Dispose the Socket and all Message Handlers
-        /// </summary>
-        public async Task DisposeAsync()
-        {
-            ShouldAttemptConnection = false;
-            await ReconnectSocketAsync().ConfigureAwait(false);
-            DisconnectTime = DateTime.UtcNow;
-#if DEBUG
-            SocketLog?.Trace($"Socket {Request.Id} disposed..");
-#endif
+            catch (Exception ex)
+            {
+                SocketLog?.Error(ex);
+                DisconnectTime = DateTime.UtcNow;
+                SocketOnStatusChanged(ConnectionStatus.Lost);
+                await ConnectionAttemptLoopInternalAsync().ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -213,7 +263,7 @@ namespace BinanceAPI.ClientBase
         /// <returns></returns>
         public Task SendAndWaitAsync(BinanceSocketRequest obj, TimeSpan timeout, Func<JToken, bool> handler)
         {
-            if (_resetting)
+            if (_resettingSend)
             {
                 return Task.CompletedTask;
             }
@@ -234,20 +284,91 @@ namespace BinanceAPI.ClientBase
         }
 
         /// <summary>
-        /// Loop for sending data
+        /// Close and Dispose the Socket and all Message Handlers
+        /// <para>This will <see cref="ConnectionStatus.Closed"/> the WebSocket</para>
+        /// <para>You will have to create a new socket from constructor if you call this</para>
         /// </summary>
-        /// <returns></returns>
+        public async Task<bool> DisposeAsync()
+        {
+            if (SocketConnectionStatus != ConnectionStatus.Connected)
+            {
+                return false;
+            }
+
+            ShouldAttemptConnection = false;
+            _resettingDigest = true;
+            await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
+            _resettingSend = true;
+            _sendEvent.Set();
+
+            await CloseDisposeAsync().ConfigureAwait(false);
+            return true;
+        }
+
+        internal async Task CloseDisposeAsync()
+        {
+            ShouldAttemptConnection = false;
+
+            await CloseConnection().ConfigureAwait(false);
+            await FailRequests().ConfigureAwait(false);
+
+            DisconnectTime = DateTime.UtcNow;
+            SocketOnStatusChanged(ConnectionStatus.Closed);
+            MessageHandler = null;
+#if DEBUG
+            SocketLog?.Info($"Socket {Request.Id} closed and disposed");
+#endif
+        }
+
+        internal Task Signal()
+        {
+            _resettingSend = true;
+            _resettingDigest = true;
+            _sendEvent.Set();
+            return Task.CompletedTask;
+        }
+
+        internal async Task CloseConnection()
+        {
+            if (ClientSocket.State == WebSocketState.Open)
+            {
+                await WaitForTasksSimple(false);
+                await ClientSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, default).ConfigureAwait(false);
+                SocketLog?.Debug($"Socket {Request.Id} has closed..");
+            }
+            else
+            {
+                SocketLog?.Debug($"Socket {Request.Id} was already closed..");
+            }
+
+            SocketOnStatusChanged(ConnectionStatus.Disconnected);
+        }
+
+        internal Task FailRequests()
+        {
+            lock (pendingRequests)
+            {
+                foreach (var pendingRequest in pendingRequests.ToList())
+                {
+                    pendingRequest.Fail();
+                    pendingRequests.Remove(pendingRequest);
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
         protected private async Task SendLoopAsync()
         {
             try
             {
-                sendLoopActive = true;
+                _sendLoopActive = true;
 
-                while (!_resetting)
+                while (!_resettingSend)
                 {
                     await _sendEvent.WaitAsync().ConfigureAwait(false);
 
-                    while (!_resetting)
+                    while (!_resettingSend)
                     {
                         bool s = _sendBuffer.TryDequeue(out var data);
                         if (s)
@@ -264,12 +385,18 @@ namespace BinanceAPI.ClientBase
                     }
                 }
 
-                sendLoopActive = false;
+                _sendLoopActive = false;
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException)
+            {
+                SocketLog?.Debug("ObjectDisposedException changing sockets (expected)");
+                _sendLoopActive = false;
             }
             catch (Exception ex)
             {
-                TheLog.SocketLog?.Error(ex);
-                sendLoopActive = false;
+                SocketLog?.Error(ex);
+                _sendLoopActive = false;
+                SocketLog?.Debug("Reconnecting Because of Exception");
                 await ReconnectSocketAsync().ConfigureAwait(false);
             }
         }
@@ -278,23 +405,26 @@ namespace BinanceAPI.ClientBase
         {
             try
             {
-                digestLoopActive = true;
+                _digestLoopActive = true;
 
-                while (!_resetting)
+                while (!_resettingDigest)
                 {
                     _buffer = new ArraySegment<byte>(new byte[8192]);
                     _multiPartMessage = false;
                     _memoryStream = null;
                     _receiveResult = null;
 
-                    while (!_resetting)
+                    while (!_resettingDigest)
                     {
                         _receiveResult = ClientSocket.ReceiveAsync(_buffer, default).Result;
 
                         if (_receiveResult.MessageType == WebSocketMessageType.Close)
                         {
                             TheLog.SocketLog?.Debug(LEFT_BRACKET + Request.Id + SOCKET_CLOSE_MESSAGE);
-                            await ReconnectSocketAsync().ConfigureAwait(false);
+                            if (ShouldAttemptConnection)
+                            {
+                                await ReconnectSocketAsync().ConfigureAwait(false);
+                            }
                             break;
                         }
 
@@ -320,7 +450,12 @@ namespace BinanceAPI.ClientBase
                     }
                 }
 
-                digestLoopActive = false;
+                _digestLoopActive = false;
+            }
+            catch (Exception ex) when (ex is ObjectDisposedException)
+            {
+                SocketLog?.Debug("ObjectDisposedException changing sockets (expected)");
+                _digestLoopActive = false;
             }
             catch
             {
@@ -330,12 +465,13 @@ namespace BinanceAPI.ClientBase
                     _memoryStream = null;
                 }
 
-                if (_resetting)
+                if (_resettingDigest)
                 {
                     return;
                 }
 
-                digestLoopActive = false;
+                _digestLoopActive = false;
+                SocketLog?.Debug("Reconnecting Because of Exception");
                 await ReconnectSocketAsync().ConfigureAwait(false);
             }
         }
@@ -394,21 +530,21 @@ namespace BinanceAPI.ClientBase
             }
         }
 
-        protected private async Task ConnectionAttemptLoopInternalAsync(bool connecting = false)
+        protected private async Task<bool> ConnectionAttemptLoopInternalAsync(bool connecting = false)
         {
             try
             {
                 if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting)
                 {
-                    return;
+                    return false;
                 }
 
                 while (true)
                 {
                     if (!ShouldAttemptConnection)
                     {
-                        await DisposeAsync().ConfigureAwait(false);
-                        return;
+                        await CloseDisposeAsync().ConfigureAwait(false);
+                        return false;
                     }
 
                     await Task.Delay(1).ConfigureAwait(false);
@@ -416,7 +552,7 @@ namespace BinanceAPI.ClientBase
                     bool completed = await ConnectionAttemptCompletedInternal(connecting).ConfigureAwait(false);
                     if (completed)
                     {
-                        return;
+                        return true;
                     }
                 }
             }
@@ -424,6 +560,8 @@ namespace BinanceAPI.ClientBase
             {
                 SocketLog?.Error(ex);
             }
+
+            return false;
         }
 
         protected private async Task<bool> ConnectionAttemptCompletedInternal(bool connecting = false)
@@ -446,7 +584,7 @@ namespace BinanceAPI.ClientBase
                     if (ReconnectTry >= socketClient.MaxReconnectTries)
                     {
                         SocketLog?.Debug($"Socket {Request.Id} failed to {(connecting ? "connect" : "reconnect")} after {ReconnectTry} tries, closing");
-                        await DisposeAsync().ConfigureAwait(false);
+                        await CloseDisposeAsync().ConfigureAwait(false);
                         return true;
                     }
                     else
@@ -471,7 +609,7 @@ namespace BinanceAPI.ClientBase
                     if (ResubscribeTry >= socketClient.MaxReconnectTries)
                     {
                         SocketLog?.Debug($"Socket {Request.Id} failed to {(connecting ? "subscribe" : "resubscribe")} after {ResubscribeTry} tries, closing");
-                        await DisposeAsync().ConfigureAwait(false);
+                        await CloseDisposeAsync().ConfigureAwait(false);
                         return true;
                     }
                     else
@@ -496,16 +634,12 @@ namespace BinanceAPI.ClientBase
 
             if (!ShouldAttemptConnection)
             {
-                await DisposeAsync().ConfigureAwait(false);
+                await CloseDisposeAsync().ConfigureAwait(false);
             }
 
             return true;
         }
 
-        /// <summary>
-        /// Attempt to Connect and Start the WebSocket
-        /// </summary>
-        /// <returns></returns>
         protected private async Task<bool> ConnectionAttemptInternalAsync()
         {
 #if DEBUG
@@ -513,18 +647,18 @@ namespace BinanceAPI.ClientBase
 #endif
             try
             {
-                sendLoopActive = false;
-                digestLoopActive = false;
+                _sendLoopActive = false;
+                _digestLoopActive = false;
 
                 await ClientSocket.ConnectAsync(UriClient.GetStream(), default).ConfigureAwait(false);
 #if DEBUG
                 SocketLog?.Trace($"Socket {Request.Id} connection succeeded, starting communication..");
 #endif
-                //  _sendTask = Task.Factory.StartNew(SendLoopAsync, default, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
-                // _receiveTask = Task.Factory.StartNew(DigestLoop, default, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
+                _ = Task.Factory.StartNew(SendLoopAsync, default, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
+                _ = Task.Factory.StartNew(DigestLoopAsync, default, TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
 
-                _ = Task.Run(SendLoopAsync).ConfigureAwait(false);
-                _ = Task.Run(DigestLoopAsync).ConfigureAwait(false);
+                //_ = Task.Run(SendLoopAsync).ConfigureAwait(false);
+                //_ = Task.Run(DigestLoopAsync).ConfigureAwait(false);
 
                 bool b = await WaitForTasksSimple(true);
                 if (b)
@@ -554,15 +688,14 @@ namespace BinanceAPI.ClientBase
             }
         }
 
-        /// <summary>
-        /// Create the WebSocket
-        /// </summary>
         protected private void NewWebSocketInternal(bool reset = false)
         {
             if (reset)
             {
-                TheLog.SocketLog?.Debug($"Socket {Request.Id} resetting..");
+                SocketLog?.Debug($"Socket {Request.Id} resetting..");
             }
+
+            ShouldAttemptConnection = true;
 
             _sendEvent = new AsyncResetEvent();
             _sendBuffer = new ConcurrentQueue<byte[]>();
@@ -571,98 +704,27 @@ namespace BinanceAPI.ClientBase
             ClientSocket.Options.KeepAliveInterval = TimeSpan.FromMinutes(1);
             ClientSocket.Options.SetBuffer(8192, 8192);
 
-            _resetting = false;
+            _resettingSend = false;
+            _resettingDigest = false;
         }
 
-        /// <summary>
-        /// Connect the Socket
-        /// </summary>
-        /// <returns></returns>
-        protected internal Task InternalConnectSocketAsync()
+        internal Task InternalConnectSocketAsync()
         {
-            if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting || _resetting)
+            if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting || _resettingSend || _resettingDigest)
             {
                 return Task.CompletedTask;
             }
 
-            _resetting = true;
+            _resettingSend = true;
+            _resettingDigest = true;
 
-            TheLog.SocketLog?.Debug($"Connecting Socket {Request.Id}..");
+            SocketLog?.Debug($"Connecting Socket {Request.Id}..");
             _ = Task.Run(async () =>
             {
                 await ConnectionAttemptLoopInternalAsync(true).ConfigureAwait(false);
             }).ConfigureAwait(false);
 
             return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Internal reset method, Will prepare the socket to be reset so it can be automatically reconnected or closed permanantly
-        /// </summary>
-        /// <returns></returns>
-        public async Task ReconnectSocketAsync(bool connectAttempt = false)
-        {
-            try
-            {
-                if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting || _resetting)
-                {
-                    return;
-                }
-
-                _resetting = true;
-                _sendEvent.Set();
-
-                if (ClientSocket.State == WebSocketState.Open)
-                {
-                    await ClientSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, default).ConfigureAwait(false);
-                    TheLog.SocketLog?.Debug($"Socket {Request.Id} has closed..");
-                }
-                else
-                {
-                    TheLog.SocketLog?.Debug($"Socket {Request.Id} was already closed..");
-                }
-
-                SocketOnStatusChanged(ConnectionStatus.Disconnected);
-
-                lock (pendingRequests)
-                {
-                    foreach (var pendingRequest in pendingRequests.ToList())
-                    {
-                        pendingRequest.Fail();
-                        pendingRequests.Remove(pendingRequest);
-                    }
-                }
-
-                if (ShouldAttemptConnection)
-                {
-                    if (SocketConnectionStatus == ConnectionStatus.Connecting || SocketConnectionStatus == ConnectionStatus.Waiting)
-                    {
-                        return; // Already reconnecting
-                    }
-
-                    DisconnectTime = DateTime.UtcNow;
-                    SocketOnStatusChanged(ConnectionStatus.Lost);
-                    SocketLog?.Info($"Socket {Request.Id} Connection lost, will try to reconnect after 2000ms");
-
-                    _ = Task.Run(async () =>
-                    {
-                        await ConnectionAttemptLoopInternalAsync().ConfigureAwait(false);
-                    }).ConfigureAwait(false);
-                }
-                else
-                {
-                    SocketOnStatusChanged(ConnectionStatus.Closed);
-                    SocketLog?.Info($"Socket {Request.Id} closed");
-                    ClientSocket?.Dispose();
-                }
-            }
-            catch (Exception ex)
-            {
-                SocketLog?.Error(ex);
-                DisconnectTime = DateTime.UtcNow;
-                SocketOnStatusChanged(ConnectionStatus.Lost);
-                await ConnectionAttemptLoopInternalAsync().ConfigureAwait(false);
-            }
         }
 
         protected private async Task<bool> ResubscriptionInternalAsync()
@@ -682,11 +744,6 @@ namespace BinanceAPI.ClientBase
             return true;
         }
 
-        /// <summary>
-        /// Wait for Send/Digest loop to start/stop
-        /// </summary>
-        /// <param name="start"></param>
-        /// <returns></returns>
         protected private async Task<bool> WaitForTasksSimple(bool start)
         {
             var ticks = DateTime.Now.Ticks;
@@ -696,21 +753,24 @@ namespace BinanceAPI.ClientBase
 
                 if (start)
                 {
-                    if (sendLoopActive && digestLoopActive)
+                    if (_sendLoopActive && _digestLoopActive)
                     {
+                        Console.WriteLine($"Socket {Request.Id} Started Tasks");
                         return true;
                     }
                 }
                 else
                 {
-                    if (!sendLoopActive && !digestLoopActive)
+                    if (!_sendLoopActive && !_digestLoopActive)
                     {
+                        Console.WriteLine($"Socket {Request.Id} Stopped Tasks");
                         return true;
                     }
                 }
 
-                if (ticks + 5_000_000 > DateTime.Now.Ticks)
+                if (ticks + 50_000_000 < DateTime.Now.Ticks)
                 {
+                    Console.WriteLine($"Failed to wait");
                     return false;
                 }
             }

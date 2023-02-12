@@ -1,3 +1,10 @@
+### Version 6.0.7.8
+- [x] You can now `Unsubscribe` Sockets Separately
+- [x] You can now `Resubscribe` Sockets Separately
+- [x] You can now `Dispose` Sockets which will automatically unsubscribe
+- [x] You can now `Recreate BaseSocketClients` with a small delay
+- [x] Sockets will no longer throw some exceptions
+
 ### Version 6.0.7.7
 - [x] Numerous bug fixes and optimizations
 
