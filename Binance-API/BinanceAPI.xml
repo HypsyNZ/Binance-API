@@ -261,12 +261,12 @@
             Encoding used for decoding the received bytes into a string
             </summary>
         </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.#ctor(System.String,BinanceAPI.ClientHosts.SocketClientHost)">
+        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.#ctor(System.String,System.Int32)">
             <summary>
             The Base Client for handling a SocketSubscription
             </summary>
             <param name="url">The url the socket should connect to</param>
-            <param name="client"></param>
+            <param name="MaxRetry">Max number of failed reconnect attempts in a row</param>
         </member>
         <member name="M:BinanceAPI.ClientBase.BaseSocketClient.UnsubscribeAsync">
             <summary>
@@ -880,6 +880,46 @@
         <member name="F:BinanceAPI.Enums.ListStatusType.Done">
             <summary>
             Order list is done
+            </summary>
+        </member>
+        <member name="T:BinanceAPI.Enums.LogLevel">
+            <summary>
+            The Log Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Trace">
+            <summary>
+            Trace Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Debug">
+            <summary>
+            Debug Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Information">
+            <summary>
+            Information Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Warning">
+            <summary>
+            Warning Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Error">
+            <summary>
+            Error Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Critical">
+            <summary>
+            Critical Level
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.LogLevel.Fatal">
+            <summary>
+            Fatal Level
             </summary>
         </member>
         <member name="T:BinanceAPI.Enums.MarginLevelStatus">
@@ -2003,7 +2043,7 @@
             Update interval in milliseconds, either 100 or 1000. Defaults to 1000
             </summary>
         </member>
-        <member name="M:BinanceAPI.Objects.BinanceOrderBookOptions.#ctor(System.Nullable{System.Int32},System.Nullable{System.Int32},BinanceAPI.ClientHosts.SocketClientHost,BinanceAPI.ClientHosts.BinanceClientHost,System.String,BinanceAPI.LogLevel,System.Boolean)">
+        <member name="M:BinanceAPI.Objects.BinanceOrderBookOptions.#ctor(System.Nullable{System.Int32},System.Nullable{System.Int32},BinanceAPI.ClientHosts.SocketClientHost,BinanceAPI.ClientHosts.BinanceClientHost,System.String,BinanceAPI.Enums.LogLevel,System.Boolean)">
             <summary>
             Create new options
             </summary>
@@ -2023,11 +2063,6 @@
         <member name="P:BinanceAPI.Objects.SocketClientHostOptions.MaxReconnectTries">
             <summary>
             The maximum number of times to try to reconnect
-            </summary>
-        </member>
-        <member name="P:BinanceAPI.Objects.SocketClientHostOptions.MaxConcurrentResubscriptionsPerSocket">
-            <summary>
-            Max number of concurrent resubscription tasks per socket after reconnecting a socket
             </summary>
         </member>
         <member name="T:BinanceAPI.Objects.Other.BinanceAPIKeyPermissions">
@@ -7094,7 +7129,7 @@
             when a new bid level is added which makes the total amount of bids 11, should the last bid entry be removed
             </summary>
         </member>
-        <member name="M:BinanceAPI.Options.OrderBookOptions.#ctor(System.String,System.Boolean,System.Boolean,System.String,BinanceAPI.LogLevel,System.Boolean)">
+        <member name="M:BinanceAPI.Options.OrderBookOptions.#ctor(System.String,System.Boolean,System.Boolean,System.String,BinanceAPI.Enums.LogLevel,System.Boolean)">
             <summary>
             ctor
             </summary>
@@ -7541,67 +7576,11 @@
             </summary>
             <param name="options">The options to use for this client</param>
         </member>
-        <member name="P:BinanceAPI.ClientHosts.SocketClientHost.MaxReconnectTries">
-            <summary>
-            The maximum number of times to try to reconnect
-            </summary>
-        </member>
         <member name="M:BinanceAPI.ClientHosts.SocketClientHost.SetDefaultOptions(BinanceAPI.Objects.SocketClientHostOptions)">
             <summary>
             Set the default options to be used when creating new socket clients
             </summary>
             <param name="options"></param>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.SubscribeAsync``1(System.String,BinanceAPI.Objects.Other.BinanceSocketRequest,System.Boolean,System.Action{BinanceAPI.Sockets.DataEvent{``0}},BinanceAPI.ClientHosts.SocketClientHost,System.Boolean)">
-            <summary>
-            Connect to an url and listen for data
-            </summary>
-            <typeparam name="T">The type of the expected data</typeparam>
-            <param name="url">The URL to connect to</param>
-            <param name="request">The optional request object to send, will be serialized to json</param>
-            <param name="authenticated">If the subscription is to an authenticated endpoint</param>
-            <param name="dataHandler">The handler of update data</param>
-            <param name="host">Socket Host</param>
-            <param name="userStream">True if this socket is a user stream</param>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.SubscribeAndWaitAsync(BinanceAPI.ClientBase.BaseSocketClient,BinanceAPI.Objects.Other.BinanceSocketRequest)">
-            <summary>
-            Sends the subscribe request and waits for a response to that request
-            </summary>
-            <param name="baseSocketClient">The connection to send the request on</param>
-            <param name="request">The request to send, will be serialized to json</param>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.HandleSubscriptionResponse(BinanceAPI.Objects.Other.BinanceSocketRequest,Newtonsoft.Json.Linq.JToken,BinanceAPI.Objects.CallResult{System.Object}@)">
-            <summary>
-            The socketConnection received data (the data JToken parameter). The implementation of this method should check if the received data is a response to the subscription request that was send (the request parameter).
-            For example; A subscribe request message is send with an Id parameter with value 10. The socket receives data and calls this method to see if the data it received is an
-            anwser to any subscription request that was done. The implementation of this method should check if the response.Id == request.Id to see if they match (assuming the api has some sort of Id tracking on messages,
-            if not some other method has be implemented to match the messages).
-            If the messages match, the callResult out parameter should be set with the deserialized data in the from of (T) and return true.
-            </summary>
-            <param name="request">The request that the subscription sent</param>
-            <param name="message">JToken</param>
-            <param name="callResult">The interpretation (null if message wasn't a response to the request)</param>
-            <returns>True if the message was a response to the subscription request</returns>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.MessageMatchesHandler(Newtonsoft.Json.Linq.JToken,BinanceAPI.Objects.Other.BinanceSocketRequest)">
-            <summary>
-            Needs to check if a received message matches a handler by request. After subscribing data message will come in. These data messages need to be matched to a specific connection
-            to pass the correct data to the correct handler. The implementation of this method should check if the message received matches the subscribe request that was sent.
-            </summary>
-            <param name="message">The received data</param>
-            <param name="request">The subscription request</param>
-            <returns>True if the message is for the subscription which sent the request</returns>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.UnsubscribeAsync(BinanceAPI.ClientBase.BaseSocketClient,BinanceAPI.Objects.Other.BinanceSocketRequest)">
-            <summary>
-            Needs to unsubscribe a subscription, typically by sending an unsubscribe request.
-            </summary>
-            <param name="socketClient">The connection on which to unsubscribe</param>
-            <param name="Request">The Socket Request</param>
-            <returns></returns>
         </member>
         <member name="M:BinanceAPI.ClientHosts.SocketClientHost.Dispose">
             <summary>
@@ -7740,7 +7719,7 @@
             <para>Can be prepared ahead of time if required</para>
             </summary>
         </member>
-        <member name="M:BinanceAPI.Logger.#ctor(System.String,System.Boolean,System.String,BinanceAPI.LogLevel,System.Int32)">
+        <member name="M:BinanceAPI.Logger.#ctor(System.String,System.Boolean,System.String,BinanceAPI.Enums.LogLevel,System.Int32)">
             <summary>
             A Simple Logger
             </summary>
@@ -7796,7 +7775,7 @@
             <para>Default: "MM/dd/yy HH:mm:ss:fff"</para>
             </summary>
         </member>
-        <member name="M:BinanceAPI.Logger.Write(System.String,BinanceAPI.LogLevel)">
+        <member name="M:BinanceAPI.Logger.Write(System.String,BinanceAPI.Enums.LogLevel)">
             <summary>
             Write a Message to the Log
             </summary>
@@ -7818,7 +7797,7 @@
             The Log
             </summary>
         </member>
-        <member name="M:BinanceAPI.Logging.#ctor(System.String,System.Boolean,System.String,BinanceAPI.LogLevel,System.Int32)">
+        <member name="M:BinanceAPI.Logging.#ctor(System.String,System.Boolean,System.String,BinanceAPI.Enums.LogLevel,System.Int32)">
             <summary>
             A Simple Log using the Default Logger
             </summary>
@@ -7966,7 +7945,7 @@
             The Log Level for the Message
             </summary>
         </member>
-        <member name="M:BinanceAPI.Message.#ctor(System.String,System.String,BinanceAPI.LogLevel)">
+        <member name="M:BinanceAPI.Message.#ctor(System.String,System.String,BinanceAPI.Enums.LogLevel)">
             <summary>
             The Message
             </summary>
@@ -7974,7 +7953,7 @@
             <param name="dateFormat">The Date Format for the message</param>
             <param name="loglevel">The Log Level for the Message</param>
         </member>
-        <member name="M:BinanceAPI.Queue.ProcessQueue(System.Collections.Concurrent.ConcurrentQueue{BinanceAPI.Message},System.String,System.Boolean,BinanceAPI.LogLevel)">
+        <member name="M:BinanceAPI.Queue.ProcessQueue(System.Collections.Concurrent.ConcurrentQueue{BinanceAPI.Message},System.String,System.Boolean,BinanceAPI.Enums.LogLevel)">
             <summary>
             Processes the current Queue of messages
             </summary>
@@ -7982,46 +7961,6 @@
             <param name="path">The path to this loggers log file</param>
             <param name="logToConsole">True if this loggers messages should also be logged to the console</param>
             <param name="loglevel">The Log Level for the logger being processed</param>
-        </member>
-        <member name="T:BinanceAPI.LogLevel">
-            <summary>
-            The Log Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Trace">
-            <summary>
-            Trace Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Debug">
-            <summary>
-            Debug Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Information">
-            <summary>
-            Information Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Warning">
-            <summary>
-            Warning Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Error">
-            <summary>
-            Error Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Critical">
-            <summary>
-            Critical Level
-            </summary>
-        </member>
-        <member name="F:BinanceAPI.LogLevel.Fatal">
-            <summary>
-            Fatal Level
-            </summary>
         </member>
         <member name="T:BinanceAPI.SubClients.BinanceClientFiat">
             <summary>

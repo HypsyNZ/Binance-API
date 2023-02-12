@@ -22,6 +22,8 @@
 *SOFTWARE.
 */
 
+using BinanceAPI.Enums;
+
 namespace BinanceAPI.Options
 {
     /// <summary>

@@ -23,6 +23,7 @@
 */
 
 using BinanceAPI.ClientHosts;
+using BinanceAPI.Enums;
 using BinanceAPI.Options;
 
 namespace BinanceAPI.Objects

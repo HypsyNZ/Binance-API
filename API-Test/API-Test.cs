@@ -25,6 +25,7 @@
 using BinanceAPI;
 using BinanceAPI.ClientBase;
 using BinanceAPI.ClientHosts;
+using BinanceAPI.Enums;
 using BinanceAPI.Objects;
 using System;
 using System.Diagnostics;
@@ -72,7 +73,6 @@ namespace API_Test
                 LogLevel = LogLevel.Debug,
                 LogPath = socketLogs,
                 LogToConsole = false,
-                MaxConcurrentResubscriptionsPerSocket = 5,
                 MaxReconnectTries = 50
             });
 

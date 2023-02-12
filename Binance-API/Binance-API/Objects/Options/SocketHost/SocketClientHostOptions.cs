@@ -34,11 +34,6 @@ namespace BinanceAPI.Objects
         /// <summary>
         /// The maximum number of times to try to reconnect
         /// </summary>
-        public int? MaxReconnectTries { get; set; } = 50;
-
-        /// <summary>
-        /// Max number of concurrent resubscription tasks per socket after reconnecting a socket
-        /// </summary>
-        public int MaxConcurrentResubscriptionsPerSocket { get; set; } = 5;
+        public int MaxReconnectTries { get; set; } = 50;
     }
 }
