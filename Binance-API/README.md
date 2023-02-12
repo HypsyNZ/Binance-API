@@ -1,3 +1,7 @@
+### Version 6.0.8.0
+- [x] Remove a `SocketClientHost` option that didn't exist
+- [x] Refactor `BaseSocketClient`
+
 ### Version 6.0.7.9
 - [x] Fix a crash that could occur if you disconnected/reconnected your internet several times
 
