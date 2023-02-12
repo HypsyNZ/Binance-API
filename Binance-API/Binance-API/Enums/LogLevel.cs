@@ -10,7 +10,7 @@
 //
 //******************************************************************************************************
 
-namespace BinanceAPI
+namespace BinanceAPI.Enums
 {
     /// <summary>
     /// The Log Level

@@ -22,7 +22,6 @@
 *SOFTWARE.
 */
 
-using BinanceAPI.ClientHosts;
 using BinanceAPI.Enums;
 using BinanceAPI.Objects;
 using BinanceAPI.Objects.Other;
@@ -52,6 +51,8 @@ namespace BinanceAPI.ClientBase
         private const string SOCKET_CLOSE_MESSAGE = "] received `Close` message..";
         private const string LEFT_BRACKET = "[";
 
+        private readonly int MaxRetryAttempts = 50;
+
         protected private bool _sendLoopActive = false;
         protected private bool _digestLoopActive = false;
 
@@ -70,7 +71,6 @@ namespace BinanceAPI.ClientBase
         /// </summary>
         public Action<JToken>? MessageHandler { get; set; } = delegate { };
 
-        private readonly SocketClientHost socketClient;
         private readonly List<PendingRequest> pendingRequests;
 
         private Encoding _encoding = Encoding.UTF8;
@@ -139,16 +139,16 @@ namespace BinanceAPI.ClientBase
         /// The Base Client for handling a SocketSubscription
         /// </summary>
         /// <param name="url">The url the socket should connect to</param>
-        /// <param name="client"></param>
-        internal BaseSocketClient(string url, SocketClientHost client)
+        /// <param name="MaxRetry">Max number of failed reconnect attempts in a row</param>
+        internal BaseSocketClient(string url, int MaxRetry)
         {
             Url = url;
 
             NewWebSocketInternal();
 
-            socketClient = client;
-
             pendingRequests = new List<PendingRequest>();
+
+            MaxRetryAttempts = MaxRetry;
 
             DisconnectTime = DateTime.UtcNow;
         }
@@ -165,7 +165,7 @@ namespace BinanceAPI.ClientBase
                 return false;
             }
 
-            await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
+            await UnsubscribeAsync(this, Request).ConfigureAwait(false);
             ShouldAttemptConnection = false;
             _resettingDigest = true;
             _resettingSend = true;
@@ -297,7 +297,7 @@ namespace BinanceAPI.ClientBase
 
             ShouldAttemptConnection = false;
             _resettingDigest = true;
-            await socketClient.UnsubscribeAsync(this, Request).ConfigureAwait(false);
+            await UnsubscribeAsync(this, Request).ConfigureAwait(false);
             _resettingSend = true;
             _sendEvent.Set();
 
@@ -305,7 +305,7 @@ namespace BinanceAPI.ClientBase
             return true;
         }
 
-        internal async Task CloseDisposeAsync()
+        protected private async Task CloseDisposeAsync()
         {
             ShouldAttemptConnection = false;
 
@@ -320,7 +320,7 @@ namespace BinanceAPI.ClientBase
 #endif
         }
 
-        internal Task Signal()
+        protected private Task Signal()
         {
             _resettingSend = true;
             _resettingDigest = true;
@@ -328,7 +328,7 @@ namespace BinanceAPI.ClientBase
             return Task.CompletedTask;
         }
 
-        internal async Task CloseConnection()
+        protected private async Task CloseConnection()
         {
             if (ClientSocket.State == WebSocketState.Open)
             {
@@ -488,7 +488,7 @@ namespace BinanceAPI.ClientBase
                 return;
             }
 
-            if (socketClient.MessageMatchesHandler(tokenData, Request))
+            if (MessageMatchesHandler(tokenData, Request))
             {
                 if (MessageHandler != null)
                 {
@@ -581,7 +581,7 @@ namespace BinanceAPI.ClientBase
 
                 if (!await ConnectionAttemptInternalAsync().ConfigureAwait(false))
                 {
-                    if (ReconnectTry >= socketClient.MaxReconnectTries)
+                    if (ReconnectTry >= MaxRetryAttempts)
                     {
                         SocketLog?.Debug($"Socket {Request.Id} failed to {(connecting ? "connect" : "reconnect")} after {ReconnectTry} tries, closing");
                         await CloseDisposeAsync().ConfigureAwait(false);
@@ -589,12 +589,12 @@ namespace BinanceAPI.ClientBase
                     }
                     else
                     {
-                        SocketLog?.Debug($"[{DateTime.UtcNow - DisconnectTime}] Socket [{Request.Id}]  Failed to {(connecting ? "Connect" : "Reconnect")} - Attempts: {ReconnectTry}/{socketClient.MaxReconnectTries}");
+                        SocketLog?.Debug($"[{DateTime.UtcNow - DisconnectTime}] Socket [{Request.Id}]  Failed to {(connecting ? "Connect" : "Reconnect")} - Attempts: {ReconnectTry}/{MaxRetryAttempts}");
                     }
                 }
                 else
                 {
-                    SocketLog?.Info($"[{DateTime.UtcNow - DisconnectTime}] Socket [{Request.Id}] {(connecting ? "Connected" : "Reconnected")} - Attempts: {ReconnectTry}/{socketClient.MaxReconnectTries}");
+                    SocketLog?.Info($"[{DateTime.UtcNow - DisconnectTime}] Socket [{Request.Id}] {(connecting ? "Connected" : "Reconnected")} - Attempts: {ReconnectTry}/{MaxRetryAttempts}");
                     break;
                 }
             }
@@ -606,7 +606,7 @@ namespace BinanceAPI.ClientBase
                 var reconnectResult = await ResubscriptionInternalAsync().ConfigureAwait(false);
                 if (!reconnectResult)
                 {
-                    if (ResubscribeTry >= socketClient.MaxReconnectTries)
+                    if (ResubscribeTry >= MaxRetryAttempts)
                     {
                         SocketLog?.Debug($"Socket {Request.Id} failed to {(connecting ? "subscribe" : "resubscribe")} after {ResubscribeTry} tries, closing");
                         await CloseDisposeAsync().ConfigureAwait(false);
@@ -614,7 +614,7 @@ namespace BinanceAPI.ClientBase
                     }
                     else
                     {
-                        SocketLog?.Debug($"Socket {Request.Id}  {(connecting ? "subscribing" : "resubscribing")} subscription on  {(connecting ? "connected" : "reconnected")} socket{(socketClient.MaxReconnectTries != null ? $", try {ResubscribeTry}/{socketClient.MaxReconnectTries}" : "")}..");
+                        SocketLog?.Debug($"Socket {Request.Id}  {(connecting ? "subscribing" : "resubscribing")} subscription on  {(connecting ? "connected" : "reconnected")} socket{$", try {ResubscribeTry}/{MaxRetryAttempts}"}..");
                     }
 
                     if (!IsOpen)
@@ -734,7 +734,7 @@ namespace BinanceAPI.ClientBase
                 return false;
             }
 
-            var task = await socketClient.SubscribeAndWaitAsync(this, Request).ConfigureAwait(false);
+            var task = await SubscribeAndWaitAsync(this, Request).ConfigureAwait(false);
 
             if (!task.Success || !IsOpen)
             {
@@ -780,6 +780,108 @@ namespace BinanceAPI.ClientBase
         {
             SocketConnectionStatus = obj;
             ConnectionStatusChanged?.Invoke(obj);
+        }
+
+        protected private async Task<bool> UnsubscribeAsync(BaseSocketClient socketClient, BinanceSocketRequest Request)
+        {
+            var returnresult = false;
+            var unsub = new BinanceSocketRequest
+            {
+                Method = "UNSUBSCRIBE",
+                Params = Request.Params,
+                Id = Request.Id,
+            };
+
+            if (!socketClient.IsOpen)
+            {
+                return false;
+            }
+
+            await socketClient.SendAndWaitAsync(unsub, TimeSpan.FromSeconds(3),
+                data =>
+                {
+                    if (data.Type != JTokenType.Object)
+                    {
+                        return false;
+                    }
+
+                    var id = data["id"];
+                    if (id == null)
+                    {
+                        return false;
+                    }
+
+                    if ((int)id != unsub.Id)
+                    {
+                        return false;
+                    }
+
+                    var result = data["result"];
+                    if (result?.Type == JTokenType.Null)
+                    {
+                        returnresult = true;
+                        return true;
+                    }
+
+                    return false;
+                }).ConfigureAwait(false);
+            return returnresult;
+        }
+
+        protected private bool MessageMatchesHandler(JToken message, BinanceSocketRequest request)
+        {
+            if (message.Type != JTokenType.Object)
+                return false;
+
+            var stream = message["stream"];
+            if (stream == null)
+                return false;
+
+            return request.Params.Contains(stream.ToString());
+        }
+
+        protected private async Task<CallResult<bool>> SubscribeAndWaitAsync(BaseSocketClient baseSocketClient, BinanceSocketRequest request)
+        {
+            CallResult<object>? callResult = null;
+            await baseSocketClient.SendAndWaitAsync(request, TimeSpan.FromSeconds(3), data => HandleSubscriptionResponse(request, data, out callResult)).ConfigureAwait(false);
+
+            if (callResult?.Success == true)
+            {
+                baseSocketClient.IsConfirmed = true;
+            }
+
+            return new CallResult<bool>(callResult?.Success ?? false, callResult == null ? new ServerError("No response on subscription request received") : callResult.Error);
+        }
+
+        protected private bool HandleSubscriptionResponse(BinanceSocketRequest request, JToken message, out CallResult<object>? callResult)
+        {
+            callResult = null;
+            if (message.Type != JTokenType.Object)
+                return false;
+
+            var id = message["id"];
+            if (id == null)
+                return false;
+
+            if ((int)id != request.Id)
+                return false;
+
+            var result = message["result"];
+            if (result != null && result.Type == JTokenType.Null)
+            {
+                callResult = new CallResult<object>(null, null);
+                return true;
+            }
+
+            var error = message["error"];
+            if (error == null)
+            {
+                callResult = new CallResult<object>(null, new ServerError("Unknown error: " + message.ToString()));
+                return true;
+            }
+
+            callResult = new CallResult<object>(null, new ServerError(error["code"]!.Value<int>(), error["msg"]!.ToString()));
+            return true;
         }
     }
 }

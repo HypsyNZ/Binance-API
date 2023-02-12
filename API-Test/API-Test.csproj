@@ -66,10 +66,5 @@
       <Name>BinanceAPI</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="SimpleLog4.NET">
-      <Version>1.0.6</Version>
-    </PackageReference>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
