@@ -1,3 +1,6 @@
+### Version 6.0.7.9
+- [x] Fix a crash that could occur if you disconnected/reconnected your internet several times
+
 ### Version 6.0.7.8
 - [x] You can now `Unsubscribe` Sockets Separately
 - [x] You can now `Resubscribe` Sockets Separately
