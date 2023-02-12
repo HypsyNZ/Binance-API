@@ -361,9 +361,9 @@ namespace BinanceAPI.ClientHosts
                     return new WebCallResult<T>(statusCode, headers, default, error);
                 }
             }
-            catch (HttpRequestException)
+            catch
             {
-                return new WebCallResult<T>(default, null, default, null);
+                return new WebCallResult<T>(default, null, default, new CantConnectError());
             }
         }
 
