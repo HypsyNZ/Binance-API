@@ -294,19 +294,6 @@ namespace BinanceAPI.ClientHosts
         }
 
         /// <summary>
-        /// Unsubscribe an update subscription
-        /// </summary>
-        /// <param name="client">The Base Socket Client to Ubsubscribe</param>
-        /// <returns></returns>
-        public async Task UnsubscribeAsync(BaseSocketClient client)
-        {
-#if DEBUG
-            SocketLog?.Info("Closing subscription " + client.Request.Id);
-#endif
-            await client.CloseAndDisposeSubscriptionAsync().ConfigureAwait(false);
-        }
-
-        /// <summary>
         /// Dispose the client
         /// </summary>
         public override void Dispose()

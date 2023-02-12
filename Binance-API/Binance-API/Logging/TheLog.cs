@@ -37,22 +37,22 @@ namespace BinanceAPI
         /// <summary>
         /// Binance Time Log
         /// </summary>
-        public static Logging? TimeLog { get; set; }
+        public static Logging TimeLog { get; set; }
 
         /// <summary>
         /// Binance Client Log
         /// </summary>
-        public static Logging? ClientLog { get; set; }
+        public static Logging ClientLog { get; set; }
 
         /// <summary>
         /// Socket Client Log
         /// </summary>
-        public static Logging? SocketLog { get; set; }
+        public static Logging SocketLog { get; set; }
 
         /// <summary>
         /// Order Book Log
         /// </summary>
-        public static Logging? OrderBookLog { get; set; }
+        public static Logging OrderBookLog { get; set; }
 
         internal static void StartTimeLog(string timeLogPath, LogLevel timeLogLevel, bool LogToConsole)
         {

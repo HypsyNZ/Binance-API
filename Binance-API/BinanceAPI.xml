@@ -270,21 +270,24 @@
         </member>
         <member name="M:BinanceAPI.ClientBase.BaseSocketClient.UnsubscribeAsync">
             <summary>
-            Unsubscribe and Dispose the Socket
+            Unsubscribe the Socket
+            <para>You can only call this method when <see cref="F:BinanceAPI.Enums.ConnectionStatus.Connected"/></para>
             </summary>
             <returns></returns>
         </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.CloseAndDisposeSubscriptionAsync">
+        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.ResubscribeAsync">
             <summary>
-            Closes the subscription on this connection
-            <para>Closes the connection if the correct subscription is provided</para>
+            Resubscribe the Socket
+            <para>You can only call this when <see cref="F:BinanceAPI.Enums.ConnectionStatus.Unsubscribed"/></para>
             </summary>
             <returns></returns>
         </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.DisposeAsync">
+        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.ReconnectSocketAsync">
             <summary>
-            Close and Dispose the Socket and all Message Handlers
+            Internal Reconnection method, Will reset the socket so it can be automatically reconnected or closed permanantly
+            <para>You can call this if you think the socket is disconnected</para>
             </summary>
+            <returns></returns>
         </member>
         <member name="M:BinanceAPI.ClientBase.BaseSocketClient.SendAndWaitAsync(BinanceAPI.Objects.Other.BinanceSocketRequest,System.TimeSpan,System.Func{Newtonsoft.Json.Linq.JToken,System.Boolean})">
             <summary>
@@ -295,41 +298,12 @@
             <param name="handler">The response handler</param>
             <returns></returns>
         </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.SendLoopAsync">
+        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.DisposeAsync">
             <summary>
-            Loop for sending data
+            Close and Dispose the Socket and all Message Handlers
+            <para>This will <see cref="F:BinanceAPI.Enums.ConnectionStatus.Closed"/> the WebSocket</para>
+            <para>You will have to create a new socket from constructor if you call this</para>
             </summary>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.ConnectionAttemptInternalAsync">
-            <summary>
-            Attempt to Connect and Start the WebSocket
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.NewWebSocketInternal(System.Boolean)">
-            <summary>
-            Create the WebSocket
-            </summary>
-        </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.InternalConnectSocketAsync">
-            <summary>
-            Connect the Socket
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.ReconnectSocketAsync(System.Boolean)">
-            <summary>
-            Internal reset method, Will prepare the socket to be reset so it can be automatically reconnected or closed permanantly
-            </summary>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientBase.BaseSocketClient.WaitForTasksSimple(System.Boolean)">
-            <summary>
-            Wait for Send/Digest loop to start/stop
-            </summary>
-            <param name="start"></param>
-            <returns></returns>
         </member>
         <member name="T:BinanceAPI.Converters.AccountTypeConverter">
             <summary>
@@ -576,6 +550,11 @@
         <member name="F:BinanceAPI.Enums.ConnectionStatus.Waiting">
             <summary>
             Waiting for reconnect attempt
+            </summary>
+        </member>
+        <member name="F:BinanceAPI.Enums.ConnectionStatus.Unsubscribed">
+            <summary>
+            Unsubscribed and Waiting
             </summary>
         </member>
         <member name="T:BinanceAPI.Enums.DepositStatus">
@@ -7622,13 +7601,6 @@
             </summary>
             <param name="socketClient">The connection on which to unsubscribe</param>
             <param name="Request">The Socket Request</param>
-            <returns></returns>
-        </member>
-        <member name="M:BinanceAPI.ClientHosts.SocketClientHost.UnsubscribeAsync(BinanceAPI.ClientBase.BaseSocketClient)">
-            <summary>
-            Unsubscribe an update subscription
-            </summary>
-            <param name="client">The Base Socket Client to Ubsubscribe</param>
             <returns></returns>
         </member>
         <member name="M:BinanceAPI.ClientHosts.SocketClientHost.Dispose">

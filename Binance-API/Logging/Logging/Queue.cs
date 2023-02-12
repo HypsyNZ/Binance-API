@@ -34,7 +34,7 @@ namespace BinanceAPI
             {
                 try
                 {
-                    if (loggedMessages.Count > 0)
+                    while (loggedMessages.TryPeek(out _))
                     {
                         bool message = loggedMessages.TryDequeue(out Message result);
 
@@ -51,7 +51,10 @@ namespace BinanceAPI
                         }
                     }
                 }
-                catch { }
+                catch
+                {
+                    // Ignore
+                }
                 finally
                 {
                     slim.Release();

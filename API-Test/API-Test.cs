@@ -146,11 +146,11 @@ namespace API_Test
 
                     //ExchangeInfoTest.Run(client);
 
-                    //SocketTest.Run(socketClient);
+                    SocketTest.Run(socketClient);
 
                     //OrderTest.Run(client);
 
-                    Requests.Run(socketClient, client);
+                    //Requests.Run(socketClient, client);
                 }
             });
 

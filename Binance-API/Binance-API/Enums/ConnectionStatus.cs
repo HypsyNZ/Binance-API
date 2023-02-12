@@ -62,6 +62,11 @@ namespace BinanceAPI.Enums
         /// <summary>
         /// Waiting for reconnect attempt
         /// </summary>
-        Waiting = 6
+        Waiting = 6,
+
+        /// <summary>
+        /// Unsubscribed and Waiting
+        /// </summary>
+        Unsubscribed = 7
     }
 }
