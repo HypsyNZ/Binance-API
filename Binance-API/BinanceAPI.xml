@@ -1752,6 +1752,11 @@
             API3.Binance.com
             </summary>
         </member>
+        <member name="F:BinanceAPI.ApiEndpoint.FOUR">
+            <summary>
+            API4.Binance.com
+            </summary>
+        </member>
         <member name="F:BinanceAPI.ApiEndpoint.TEST">
             <summary>
             TESTNET.Binance.com

@@ -183,7 +183,7 @@ namespace BinanceAPI.ClientHosts
             var ctRegistration = ct.Register(() => ping.SendAsyncCancel());
             try
             {
-                reply = await ping.SendPingAsync(new Uri(UriClient.GetBaseAddress()).Host).ConfigureAwait(false);
+                reply = await ping.SendPingAsync(UriClient.GetBaseAddress().Host).ConfigureAwait(false);
             }
             catch (PingException e)
             {

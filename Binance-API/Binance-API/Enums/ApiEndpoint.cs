@@ -50,6 +50,11 @@ namespace BinanceAPI
         THREE,
 
         /// <summary>
+        /// API4.Binance.com
+        /// </summary>
+        FOUR,
+
+        /// <summary>
         /// TESTNET.Binance.com
         /// </summary>
         TEST,

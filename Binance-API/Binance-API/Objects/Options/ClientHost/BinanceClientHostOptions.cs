@@ -45,6 +45,7 @@ namespace BinanceAPI.Objects
         /// <summary>
         /// The rate at which the Server Time Should be Synced in Minutes
         /// <para><see cref="ServerTimeClient.LoopToken"/> can be cancelled to stop syncing</para>
+        /// <para>If you cancel time syncing it won't run again until you restart the application, This is not recommended</para>
         /// </summary>
         public int SyncUpdateTime { get; set; } = 15;
     }

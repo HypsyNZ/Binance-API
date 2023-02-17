@@ -30,50 +30,43 @@ namespace BinanceAPI
 {
     /// <summary>
     /// The Static Client that manages Uris for Requests
+    /// This feature is a WIP
     /// </summary>
     public class UriClient
     {
         private static readonly UriHelper _allEndpoints;
 
-        private const string API_CONTROLLER_DEFAULT = @"https://api.binance.com/";
-        private const string API_CONTROLLER_ONE = @"https://api1.binance.com/";
-        private const string API_CONTROLLER_TWO = @"https://api2.binance.com/";
-        private const string API_CONTROLLER_THREE = @"https://api3.binance.com/";
-        private const string API_CONTROLLER_TEST = @"https://testnet.binance.vision/";
-
-        private static readonly string API_DEFAULT;
-        private static readonly string API_ONE;
-        private static readonly string API_TWO;
-        private static readonly string API_THREE;
-        private static readonly string API_TEST;
-
-        private const string WSS_STREAM_DEFAULT = @"wss://stream.binance.com:9443/stream";
-        private const string WSS_STREAM_ONE = @"wss://stream1.binance.com:9443/stream";
-        private const string WSS_STREAM_TWO = @"wss://stream2.binance.com:9443/stream";
-        private const string WSS_STREAM_THREE = @"wss://stream3.binance.com:9443/stream";
-        private const string WSS_STREAM_TEST = @"wss://testnet.binance.vision/stream";
+        private static readonly Uri API_CONTROLLER_DEFAULT;
+        private static readonly Uri API_CONTROLLER_ONE;
+        private static readonly Uri API_CONTROLLER_TWO;
+        private static readonly Uri API_CONTROLLER_THREE;
+        private static readonly Uri API_CONTROLLER_FOUR;
+        private static readonly Uri API_CONTROLLER_TEST;
 
         private static readonly Uri WSS_DEFAULT;
         private static readonly Uri WSS_ONE;
         private static readonly Uri WSS_TWO;
         private static readonly Uri WSS_THREE;
+        private static readonly Uri WSS_FOUR;
         private static readonly Uri WSS_TEST;
 
         static UriClient()
         {
             _allEndpoints = new UriHelper();
-
-            WSS_DEFAULT = new Uri(WSS_STREAM_DEFAULT);
-            WSS_ONE = new Uri(WSS_STREAM_ONE);
-            WSS_TWO = new Uri(WSS_STREAM_TWO);
-            WSS_THREE = new Uri(WSS_STREAM_THREE);
-            WSS_TEST = new Uri(WSS_STREAM_TEST);
-
-            API_DEFAULT = API_CONTROLLER_DEFAULT;
-            API_ONE = API_CONTROLLER_ONE;
-            API_TWO = API_CONTROLLER_TWO;
-            API_THREE = API_CONTROLLER_THREE;
-            API_TEST = API_CONTROLLER_TEST;
+            
+            API_CONTROLLER_DEFAULT = new Uri(@"https://api.binance.com/");
+            API_CONTROLLER_ONE = new Uri(@"https://api1.binance.com/");
+            API_CONTROLLER_TWO = new Uri(@"https://api2.binance.com/");
+            API_CONTROLLER_THREE = new Uri(@"https://api3.binance.com/");
+            API_CONTROLLER_FOUR = new Uri(@"https://api4.binance.com");
+            API_CONTROLLER_TEST = new Uri(@"https://testnet.binance.vision/");
+            
+            WSS_DEFAULT = new Uri(@"wss://stream.binance.com:9443/stream");
+            WSS_ONE = new Uri(@"wss://stream1.binance.com:9443/stream");
+            WSS_TWO = new Uri(@"wss://stream2.binance.com:9443/stream");
+            WSS_THREE = new Uri(@"wss://stream3.binance.com:9443/stream");
+            WSS_FOUR = new Uri(@"wss://stream4.binance.com:9443/stream");
+            WSS_TEST = new Uri(@"wss://testnet.binance.vision/stream");
         }
 
         /// <summary>
@@ -85,22 +78,24 @@ namespace BinanceAPI
         /// Get the current Api Endpoint Base Address
         /// </summary>
         /// <returns></returns>
-        public static string GetBaseAddress()
+        public static Uri GetBaseAddress()
         {
             switch (BaseClient.ChangeEndpoint)
             {
                 case ApiEndpoint.DEFAULT:
-                    return API_DEFAULT;
+                    return API_CONTROLLER_DEFAULT;
                 case ApiEndpoint.ONE:
-                    return API_ONE;
+                    return API_CONTROLLER_ONE;
                 case ApiEndpoint.TWO:
-                    return API_TWO;
+                    return API_CONTROLLER_TWO;
                 case ApiEndpoint.THREE:
-                    return API_THREE;
+                    return API_CONTROLLER_THREE;
+                case ApiEndpoint.FOUR:
+                    return API_CONTROLLER_FOUR;
                 case ApiEndpoint.TEST:
-                    return API_TEST;
+                    return API_CONTROLLER_TEST;
                 default:
-                    return API_DEFAULT;
+                    return API_CONTROLLER_DEFAULT;
             }
         }
 
@@ -120,6 +115,8 @@ namespace BinanceAPI
                     return WSS_TWO;
                 case ApiEndpoint.THREE:
                     return WSS_THREE;
+                case ApiEndpoint.FOUR:
+                    return WSS_FOUR;
                 case ApiEndpoint.TEST:
                     return WSS_TEST;
                 default:
