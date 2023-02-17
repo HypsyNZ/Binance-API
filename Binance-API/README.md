@@ -1,3 +1,8 @@
+### Version 6.0.8.2
+- [x] Add `API4` to the `UriClient` so you can select `API4`
+- [x] Cleanup some redundant code from the previous version of `UriClient`
+- [x] The redundant code doesn't affect performance.
+
 ### Version 6.0.8.1
 - [x] Fixes a bug that could occur if `Server Time` request fails
 
