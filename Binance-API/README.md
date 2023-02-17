@@ -1,3 +1,6 @@
+### Version 6.0.8.1
+- [x] Fixes a bug that could occur if `Server Time` request fails
+
 ### Version 6.0.8.0
 - [x] Remove a `SocketClientHost` option that didn't exist
 - [x] Refactor `BaseSocketClient`
