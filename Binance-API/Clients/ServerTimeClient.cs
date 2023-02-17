@@ -146,7 +146,13 @@ namespace BinanceAPI
                 _ = Task.Factory.StartNew(async (o) =>
                  {
                      PingTicks = Client.Ping().Data * PING_DIVIDED_BY_2;
-                     RemoteTime = GetServerTimeTicksAsync().Result;
+
+                     var temp = GetServerTimeTicksAsync().Result;
+                     if (temp != 0)
+                     {
+                         RemoteTime = temp;
+                     }
+
                      ServerTimeOffset.Start();
                      await Guesser().ConfigureAwait(false);
                      while (!LoopToken.Token.IsCancellationRequested)
@@ -219,8 +225,13 @@ namespace BinanceAPI
                     MissedPingCount++;
                 }
 
-                var currentGuess = ServerTimeTicks;
-                RemoteTime = GetServerTimeTicksAsync().Result;
+                var currentGuess = ServerTimeTicks;                
+                var temp = GetServerTimeTicksAsync().Result;
+                if (temp != 0)
+                {
+                    RemoteTime = temp;
+                }
+
                 ServerTimeOffset.Restart();
 
                 GuessOffset = RemoteTime - currentGuess;
